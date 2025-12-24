@@ -315,6 +315,7 @@ export class LevelGenerator {
     startModule.startPosition = new THREE.Vector3(-3, 0, -4);
     startModule.endPosition = new THREE.Vector3(0, 0, 4);
     startModule.isStart = true;
+    startModule.direction = new THREE.Vector3(0, 0, 1);
     this.modules.push(startModule);
     
     this.currentPosition.set(0, 0, 4);
@@ -331,6 +332,7 @@ export class LevelGenerator {
     );
     deliveryModule.endPosition = this.currentPosition.clone();
     deliveryModule.isDelivery = true;
+    deliveryModule.direction = this.currentDirection.clone();
     this.modules.push(deliveryModule);
     
     this.currentPosition.add(
