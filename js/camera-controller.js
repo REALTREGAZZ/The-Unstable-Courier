@@ -22,6 +22,17 @@ export class CameraController {
     this.currentLookAt = new THREE.Vector3();
     
     this.smoothing = 0.1;
+
+    this.shakeIntensity = 0;
+    this.shakeDuration = 0;
+    this.shakeTime = 0;
+    this.shakeOffset = new THREE.Vector3();
+  }
+  
+  shake(intensity = 0.5, duration = 0.5) {
+    this.shakeIntensity = intensity;
+    this.shakeDuration = duration;
+    this.shakeTime = duration;
   }
   
   handleMouseInput(mouseDelta) {
@@ -36,7 +47,7 @@ export class CameraController {
     this.distance = Math.max(this.minDistance, Math.min(this.maxDistance, this.distance));
   }
   
-  update() {
+  update(deltaTime = 1/60) {
     const targetPosition = this.target.getPosition();
     
     const offsetX = Math.sin(this.angle) * Math.cos(this.pitch) * this.distance;
@@ -58,7 +69,20 @@ export class CameraController {
     );
     this.currentLookAt.lerp(lookAtTarget, this.smoothing);
     
-    this.camera.position.copy(this.currentPosition);
+    // Apply screenshake
+    if (this.shakeTime > 0) {
+      const currentIntensity = (this.shakeTime / this.shakeDuration) * this.shakeIntensity;
+      this.shakeOffset.set(
+        (Math.random() - 0.5) * currentIntensity,
+        (Math.random() - 0.5) * currentIntensity,
+        (Math.random() - 0.5) * currentIntensity
+      );
+      this.shakeTime -= deltaTime;
+    } else {
+      this.shakeOffset.set(0, 0, 0);
+    }
+    
+    this.camera.position.copy(this.currentPosition).add(this.shakeOffset);
     this.camera.lookAt(this.currentLookAt);
   }
   
