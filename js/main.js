@@ -7,12 +7,14 @@ import { Parcel } from './parcel.js';
 import { InputManager } from './input.js';
 import { CameraController } from './camera-controller.js';
 import { ProceduralLevelBuilder, DIFFICULTY_LEVELS } from './level-generator.js';
+import { UIManager } from './ui.js';
 
 const GameState = {
   isRunning: false,
   isPaused: false,
   currentLevel: 1,
   levelCompleted: false,
+  restartShown: false,
   player: {
     health: 100,
   },
@@ -34,6 +36,7 @@ function init() {
   const world = createWorld({ canvas });
   const physics = new PhysicsEngine();
   const levelBuilder = new ProceduralLevelBuilder(physics, world.scene);
+  const uiManager = new UIManager();
   
   const levelData = levelBuilder.buildLevel(GAME_CONFIG.LEVEL.START_LEVEL);
   
@@ -83,18 +86,20 @@ function init() {
     if (levelBuilder.checkDeliveryReached(playerPos)) {
       GameState.levelCompleted = true;
       console.log('Delivery completed! Level', GameState.currentLevel, 'finished!');
+      uiManager.showParcelDelivered();
       
       setTimeout(() => {
         if (GameState.currentLevel < GAME_CONFIG.LEVEL.MAX_LEVEL) {
-          nextLevel(levelBuilder, courier, parcel, physics, world.scene);
+          nextLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager);
         } else {
           console.log('All levels completed! Congratulations!');
+          uiManager.showMessage('¡Todos los niveles completados! ¡Felicidades!', 'success');
         }
       }, 2000);
     }
   }
 
-  function nextLevel(levelBuilder, courier, parcel, physics, scene) {
+  function nextLevel(levelBuilder, courier, parcel, physics, scene, uiManager) {
     GameState.currentLevel++;
     GameState.levelCompleted = false;
     
@@ -111,9 +116,11 @@ function init() {
     const levelName = difficultyNames[Math.floor(Math.random() * difficultyNames.length)];
     
     console.log('Level', GameState.currentLevel, 'started:', levelName, '- Difficulty:', newLevelData.difficulty);
+    
+    uiManager.showLevelInfo(GameState.currentLevel, newLevelData.difficulty);
   }
 
-  window.nextLevel = () => nextLevel(levelBuilder, courier, parcel, physics, world.scene);
+  window.nextLevel = () => nextLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager);
   window.restartLevel = () => {
     levelBuilder.clearLevel();
     const newLevelData = levelBuilder.buildLevel(GameState.currentLevel);
@@ -126,10 +133,21 @@ function init() {
     parcel.attachToCourier(courier.bodies.body, new THREE.Vector3(0, 0.5, 0.2));
     
     GameState.levelCompleted = false;
+    GameState.restartShown = false;
+    uiManager.reset();
     console.log('Level', GameState.currentLevel, 'restarted');
   };
 
   GameState.isRunning = true;
+
+  uiManager.showLevelInfo(GameState.currentLevel, levelData.difficulty);
+  uiManager.onRestartBtnClick(() => window.restartLevel());
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyR' && parcel.isExploded) {
+      window.restartLevel();
+    }
+  });
 
   function gameLoop(currentTime) {
     if (!GameState.isRunning) return;
@@ -155,6 +173,13 @@ function init() {
       parcel.update(deltaTime);
       GameState.package.health = parcel.getHealth();
       cameraController.update(deltaTime);
+      
+      uiManager.update(deltaTime, parcel.getHealth(), parcel.maxHealth);
+      
+      if (parcel.isExploded && !GameState.restartShown) {
+        uiManager.showParcelExploded();
+        GameState.restartShown = true;
+      }
       
       checkDelivery();
     }

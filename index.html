@@ -9,9 +9,40 @@
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  <div class="hud">
-    <div class="hud-item">Click to start | WASD: Move | Space: Jump | Shift: Sprint | C: Crouch</div>
-    <div class="hud-item">Mouse: Look around | Scroll: Zoom</div>
+  <div id="hud" class="hud-container">
+    <div class="hud-section timer-section">
+      <div class="timer-label">TIEMPO</div>
+      <div class="timer-value" id="timerValue">00:00</div>
+    </div>
+    
+    <div class="hud-section package-health-section">
+      <div class="package-label">PAQUETE</div>
+      <div class="health-bar-container">
+        <div class="health-bar" id="packageHealthBar"></div>
+        <div class="health-bar-bg"></div>
+      </div>
+      <div class="health-percentage" id="packageHealthPercent">100%</div>
+    </div>
+    
+    <div class="hud-section score-section">
+      <div class="score-label">PUNTOS</div>
+      <div class="score-value" id="scoreValue">0</div>
+    </div>
+    
+    <div class="hud-section level-info-section">
+      <div class="level-info" id="levelInfo">Nivel 1 - Dificultad: Fácil</div>
+    </div>
+    
+    <div class="hud-section feedback-section" id="feedbackSection"></div>
+    
+    <div class="hud-section restart-section hidden" id="restartSection">
+      <button id="restartBtn" class="restart-btn">REINTENTAR [R]</button>
+      <div class="fail-message" id="failMessage">¡El paquete explotó!</div>
+    </div>
+    
+    <div class="controls-hint">
+      Click to start | WASD: Move | Space: Jump | Shift: Sprint | C: Crouch | Mouse: Look | Scroll: Zoom
+    </div>
   </div>
   <script type="module" src="/js/main.js"></script>
 </body>
