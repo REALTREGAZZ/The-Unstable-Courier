@@ -57,4 +57,11 @@ export const GAME_CONFIG = {
     MODULES_PER_LEVEL_BASE: 8,
     DIFFICULTY_SCALING: true,
   },
+  
+  SCORING: {
+    BASE_POINTS: 2000,
+    TIME_PAR: 60, // seconds
+    STYLE_BONUS_PER_STUNT: 250,
+    MAX_STUNTS_PER_LEVEL: 2,
+  },
 };

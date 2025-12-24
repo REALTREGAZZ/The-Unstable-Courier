@@ -8,6 +8,9 @@ import { InputManager } from './input.js';
 import { CameraController } from './camera-controller.js';
 import { ProceduralLevelBuilder, DIFFICULTY_LEVELS } from './level-generator.js';
 import { UIManager } from './ui.js';
+import { ScoringSystem } from './scoring-system.js';
+import { RankingSystem } from './ranking-system.js';
+import { EndScreen } from './ui/end-screen.js';
 
 const GameState = {
   isRunning: false,
@@ -15,12 +18,15 @@ const GameState = {
   currentLevel: 1,
   levelCompleted: false,
   restartShown: false,
+  recordBrokenShown: false,
   player: {
     health: 100,
   },
   package: {
     health: 100,
   },
+  startTime: 0,
+  elapsedTime: 0,
 };
 
 const LevelNames = {
@@ -37,6 +43,8 @@ function init() {
   const physics = new PhysicsEngine();
   const levelBuilder = new ProceduralLevelBuilder(physics, world.scene);
   const uiManager = new UIManager();
+  const rankingSystem = new RankingSystem();
+  const scoringSystem = new ScoringSystem();
   
   const levelData = levelBuilder.buildLevel(GAME_CONFIG.LEVEL.START_LEVEL);
   
@@ -49,6 +57,20 @@ function init() {
   
   const inputManager = new InputManager();
   const cameraController = new CameraController(world.camera, courier);
+  
+  // Create end screen
+  const hudContainer = document.getElementById('hud');
+  const endScreen = new EndScreen(hudContainer, rankingSystem, scoringSystem);
+  
+  // Initialize record display
+  const recordTime = rankingSystem.getRecordTime();
+  const recordHolder = rankingSystem.getRecordHolder();
+  uiManager.updateRecordDisplay(recordTime, recordHolder);
+  
+  // Show ghost if there's a record
+  if (recordTime !== Infinity) {
+    uiManager.showGhost();
+  }
   
   GameState.onParcelExploded = () => {
     cameraController.shake(0.8, 0.5);
@@ -72,6 +94,7 @@ function init() {
   });
 
   let lastTime = performance.now();
+  GameState.startTime = performance.now();
   
   console.log('Three.js loaded successfully');
   console.log('Cannon.js physics engine initialized');
@@ -85,21 +108,33 @@ function init() {
     const playerPos = courier.getPosition();
     if (levelBuilder.checkDeliveryReached(playerPos)) {
       GameState.levelCompleted = true;
+      GameState.elapsedTime = (performance.now() - GameState.startTime) / 1000;
       console.log('Delivery completed! Level', GameState.currentLevel, 'finished!');
-      uiManager.showParcelDelivered();
       
-      setTimeout(() => {
-        if (GameState.currentLevel < GAME_CONFIG.LEVEL.MAX_LEVEL) {
-          nextLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager);
-        } else {
-          console.log('All levels completed! Congratulations!');
-          uiManager.showMessage('¡Todos los niveles completados! ¡Felicidades!', 'success');
-        }
-      }, 2000);
+      // Calculate final score
+      const timePar = GAME_CONFIG.SCORING.TIME_PAR;
+      scoringSystem.timeBonus = scoringSystem.calculateTimeBonus(GameState.elapsedTime, timePar);
+      scoringSystem.integrityMultiplier = scoringSystem.calculateIntegrityMultiplier(
+        parcel.getHealth(), 
+        parcel.maxHealth
+      );
+      
+      const scoreData = scoringSystem.getScoreBreakdown();
+      
+      // Show victory screen
+      endScreen.showVictory(
+        scoreData,
+        GameState.elapsedTime,
+        scoringSystem.integrityMultiplier,
+        GameState.currentLevel,
+        () => nextLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager, scoringSystem, endScreen),
+        () => restartLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager, scoringSystem, endScreen),
+        () => { /* Menu callback */ }
+      );
     }
   }
 
-  function nextLevel(levelBuilder, courier, parcel, physics, scene, uiManager) {
+  function nextLevel(levelBuilder, courier, parcel, physics, scene, uiManager, scoringSystem, endScreen) {
     GameState.currentLevel++;
     GameState.levelCompleted = false;
     
@@ -118,10 +153,18 @@ function init() {
     console.log('Level', GameState.currentLevel, 'started:', levelName, '- Difficulty:', newLevelData.difficulty);
     
     uiManager.showLevelInfo(GameState.currentLevel, newLevelData.difficulty);
+    
+    // Reset scoring system for new level
+    scoringSystem.reset();
+    endScreen.reset();
+    GameState.startTime = performance.now();
+    GameState.recordBrokenShown = false;
   }
 
-  window.nextLevel = () => nextLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager);
-  window.restartLevel = () => {
+  window.nextLevel = () => nextLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager, scoringSystem, endScreen);
+  window.restartLevel = () => restartLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager, scoringSystem, endScreen);
+  
+  function restartLevel(levelBuilder, courier, parcel, physics, scene, uiManager, scoringSystem, endScreen) {
     levelBuilder.clearLevel();
     const newLevelData = levelBuilder.buildLevel(GameState.currentLevel);
     
@@ -135,8 +178,15 @@ function init() {
     GameState.levelCompleted = false;
     GameState.restartShown = false;
     uiManager.reset();
+    
+    // Reset scoring and end screen
+    scoringSystem.reset();
+    endScreen.reset();
+    GameState.startTime = performance.now();
+    GameState.recordBrokenShown = false;
+    
     console.log('Level', GameState.currentLevel, 'restarted');
-  };
+  }
 
   GameState.isRunning = true;
 
@@ -174,11 +224,43 @@ function init() {
       GameState.package.health = parcel.getHealth();
       cameraController.update(deltaTime);
       
+      // Update aerial stunt detection
+      scoringSystem.updateAerialDetection(courier, deltaTime);
+      
       uiManager.update(deltaTime, parcel.getHealth(), parcel.maxHealth);
       
+      // Update ghost time
+      const currentTime = (performance.now() - GameState.startTime) / 1000;
+      uiManager.updateGhostTime(currentTime);
+      
+      // Check if we're close to or beating the record
+      const recordTime = rankingSystem.getRecordTime();
+      if (recordTime !== Infinity && currentTime > 0) {
+        const timeDifference = recordTime - currentTime;
+        
+        // If we're within 5 seconds of the record, show "almost" message
+        if (timeDifference < 5 && timeDifference > 0) {
+          // This would be handled by CSS/visual feedback
+        }
+        
+        // If we beat the record
+        if (currentTime < recordTime && !GameState.recordBrokenShown) {
+          GameState.recordBrokenShown = true;
+          uiManager.showRecordBroken();
+        }
+      }
+      
       if (parcel.isExploded && !GameState.restartShown) {
-        uiManager.showParcelExploded();
         GameState.restartShown = true;
+        GameState.elapsedTime = (performance.now() - GameState.startTime) / 1000;
+        
+        // Show defeat screen
+        endScreen.showDefeat(
+          GameState.elapsedTime,
+          scoringSystem.calculateIntegrityMultiplier(parcel.getHealth(), parcel.maxHealth),
+          () => restartLevel(levelBuilder, courier, parcel, physics, world.scene, uiManager, scoringSystem, endScreen),
+          () => { /* Menu callback */ }
+        );
       }
       
       checkDelivery();

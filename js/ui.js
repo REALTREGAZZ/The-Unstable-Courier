@@ -9,6 +9,11 @@ export class UIManager {
     this.restartSection = document.getElementById('restartSection');
     this.restartBtn = document.getElementById('restartBtn');
     this.failMessage = document.getElementById('failMessage');
+    this.recordValue = document.getElementById('recordValue');
+    this.recordHolder = document.getElementById('recordHolder');
+    this.ghostTime = document.getElementById('ghostTime');
+    this.recordGhost = document.getElementById('recordGhost');
+    this.recordBroken = document.getElementById('recordBroken');
     
     this.elapsedTime = 0;
     this.score = 0;
@@ -93,12 +98,44 @@ export class UIManager {
     this.showMessage('¡Entrega exitosa! Siguiente nivel...', 'success');
   }
   
+  updateRecordDisplay(recordTime, recordHolder) {
+    if (recordTime === Infinity) {
+      this.recordValue.textContent = '--.--s';
+      this.recordHolder.textContent = '---';
+    } else {
+      this.recordValue.textContent = `${recordTime.toFixed(2)}s`;
+      this.recordHolder.textContent = recordHolder || '---';
+    }
+  }
+  
+  updateGhostTime(elapsedTime) {
+    const minutes = Math.floor(elapsedTime / 60);
+    const seconds = Math.floor(elapsedTime % 60);
+    this.ghostTime.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  
+  showGhost() {
+    this.recordGhost.classList.remove('hidden');
+  }
+  
+  hideGhost() {
+    this.recordGhost.classList.add('hidden');
+  }
+  
+  showRecordBroken() {
+    this.recordBroken.classList.remove('hidden');
+    setTimeout(() => {
+      this.recordBroken.classList.add('hidden');
+    }, 2000);
+  }
+  
   reset() {
     this.elapsedTime = 0;
     this.score = 0;
     this.timerValue.textContent = '00:00';
     this.scoreValue.textContent = '0';
     this.restartSection.classList.add('hidden');
+    this.hideGhost();
     
     this.feedbackSection.innerHTML = '';
   }
