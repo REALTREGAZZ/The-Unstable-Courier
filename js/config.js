@@ -10,9 +10,14 @@ export const GAME_CONFIG = {
   
   PACKAGE: {
     MASS: 5,
-    SIZE: 0.3,
+    SIZE: { x: 0.3, y: 0.3, z: 0.4 },
     HEALTH: 100,
     EXPLOSION_THRESHOLD: 50,
+    FRICTION: 0.3,
+    RESTITUTION: 0.4,
+    DAMAGE_MULTIPLIER: 50,
+    FALL_DAMAGE_THRESHOLD: 25,
+    FALL_DAMAGE_MULTIPLIER: 2,
   },
   
   WORLD: {
