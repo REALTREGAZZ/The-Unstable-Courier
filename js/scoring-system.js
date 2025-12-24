@@ -57,13 +57,26 @@ export class ScoringSystem {
   }
   
   updateAerialDetection(courier, deltaTime) {
+    if (!courier || !courier.bodies || !courier.bodies.body) {
+      return;
+    }
+
+    if (!courier.bodies.leftFoot || !courier.bodies.rightFoot) {
+      return;
+    }
+
     const body = courier.bodies.body;
     body.quaternion.toEuler(this.eulerVector);
     const currentYaw = this.eulerVector.y;
-    
+
     // Check if in air (both feet above ground)
-    const leftFootY = courier.bodies.leftFoot.position.y;
-    const rightFootY = courier.bodies.rightFoot.position.y;
+    const leftFootY = courier.bodies.leftFoot.position?.y;
+    const rightFootY = courier.bodies.rightFoot.position?.y;
+
+    if (!Number.isFinite(leftFootY) || !Number.isFinite(rightFootY)) {
+      return;
+    }
+
     const isCurrentlyInAir = leftFootY > 0.5 && rightFootY > 0.5;
     
     if (isCurrentlyInAir) {
