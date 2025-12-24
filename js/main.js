@@ -6,11 +6,13 @@ import { Courier } from './courier.js';
 import { Parcel } from './parcel.js';
 import { InputManager } from './input.js';
 import { CameraController } from './camera-controller.js';
-import { createGround } from './ground.js';
+import { ProceduralLevelBuilder, DIFFICULTY_LEVELS } from './level-generator.js';
 
 const GameState = {
   isRunning: false,
   isPaused: false,
+  currentLevel: 1,
+  levelCompleted: false,
   player: {
     health: 100,
   },
@@ -19,16 +21,24 @@ const GameState = {
   },
 };
 
+const LevelNames = {
+  [DIFFICULTY_LEVELS.EASY]: ['First Steps', 'Getting Started', 'Easy Delivery'],
+  [DIFFICULTY_LEVELS.MEDIUM]: ['Parkour Pro', 'Challenge Accepted', 'Medium Rare'],
+  [DIFFICULTY_LEVELS.HARD]: ['Hard Way', 'Expert Route', 'No Mercy'],
+  [DIFFICULTY_LEVELS.EXTREME]: ['Impossible', 'Nightmare', 'Are You Crazy?'],
+};
+
 function init() {
   const canvas = document.getElementById('gameCanvas');
   
   const world = createWorld({ canvas });
   const physics = new PhysicsEngine();
+  const levelBuilder = new ProceduralLevelBuilder(physics, world.scene);
   
-  const ground = createGround(physics, world.scene);
+  const levelData = levelBuilder.buildLevel(GAME_CONFIG.LEVEL.START_LEVEL);
   
   const courier = new Courier(physics, world.scene);
-  courier.createRagdoll(new THREE.Vector3(0, 5, 0));
+  courier.createRagdoll(levelData.startPosition.clone().add(new THREE.Vector3(0, 2, 0)));
   
   const parcel = new Parcel(physics, world.scene);
   parcel.createParcel(courier.getPosition().add(new THREE.Vector3(0, 0.5, 0.2)));
@@ -39,13 +49,11 @@ function init() {
   
   GameState.onParcelExploded = () => {
     cameraController.shake(0.8, 0.5);
-    // You could add sound effects here if an AudioManager existed
     console.log('Parcel Exploded!');
   };
 
   parcel.onExplode = GameState.onParcelExploded;
 
-  // Setup collision detection for parcel damage
   physics.world.addEventListener('postStep', () => {
     const contacts = physics.world.contacts;
     for (let i = 0; i < contacts.length; i++) {
@@ -65,8 +73,62 @@ function init() {
   console.log('Three.js loaded successfully');
   console.log('Cannon.js physics engine initialized');
   console.log('Courier ragdoll created');
+  console.log('Level generated:', levelData.levelNumber, '- Difficulty:', levelData.difficulty);
   console.log('Game configuration:', GAME_CONFIG);
   
+  function checkDelivery() {
+    if (GameState.levelCompleted) return;
+    
+    const playerPos = courier.getPosition();
+    if (levelBuilder.checkDeliveryReached(playerPos)) {
+      GameState.levelCompleted = true;
+      console.log('Delivery completed! Level', GameState.currentLevel, 'finished!');
+      
+      setTimeout(() => {
+        if (GameState.currentLevel < GAME_CONFIG.LEVEL.MAX_LEVEL) {
+          nextLevel(levelBuilder, courier, parcel, physics, world.scene);
+        } else {
+          console.log('All levels completed! Congratulations!');
+        }
+      }, 2000);
+    }
+  }
+
+  function nextLevel(levelBuilder, courier, parcel, physics, scene) {
+    GameState.currentLevel++;
+    GameState.levelCompleted = false;
+    
+    const newLevelData = levelBuilder.buildLevel(GameState.currentLevel);
+    
+    courier.dispose();
+    courier.createRagdoll(newLevelData.startPosition.clone().add(new THREE.Vector3(0, 2, 0)));
+    
+    parcel.dispose();
+    parcel.createParcel(courier.getPosition().add(new THREE.Vector3(0, 0.5, 0.2)));
+    parcel.attachToCourier(courier.bodies.body, new THREE.Vector3(0, 0.5, 0.2));
+    
+    const difficultyNames = LevelNames[newLevelData.difficulty] || LevelNames[DIFFICULTY_LEVELS.EASY];
+    const levelName = difficultyNames[Math.floor(Math.random() * difficultyNames.length)];
+    
+    console.log('Level', GameState.currentLevel, 'started:', levelName, '- Difficulty:', newLevelData.difficulty);
+  }
+
+  window.nextLevel = () => nextLevel(levelBuilder, courier, parcel, physics, world.scene);
+  window.restartLevel = () => {
+    levelBuilder.clearLevel();
+    const newLevelData = levelBuilder.buildLevel(GameState.currentLevel);
+    
+    courier.dispose();
+    courier.createRagdoll(newLevelData.startPosition.clone().add(new THREE.Vector3(0, 2, 0)));
+    
+    parcel.dispose();
+    parcel.createParcel(courier.getPosition().add(new THREE.Vector3(0, 0.5, 0.2)));
+    parcel.attachToCourier(courier.bodies.body, new THREE.Vector3(0, 0.5, 0.2));
+    
+    GameState.levelCompleted = false;
+    console.log('Level', GameState.currentLevel, 'restarted');
+  };
+
   GameState.isRunning = true;
 
   function gameLoop(currentTime) {
@@ -93,6 +155,8 @@ function init() {
       parcel.update(deltaTime);
       GameState.package.health = parcel.getHealth();
       cameraController.update(deltaTime);
+      
+      checkDelivery();
     }
     
     world.renderer.render(world.scene, world.camera);
