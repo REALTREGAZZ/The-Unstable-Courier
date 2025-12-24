@@ -79,6 +79,11 @@ function init() {
 
   parcel.onExplode = GameState.onParcelExploded;
 
+  const initialTime = performance.now();
+  let lastTime = initialTime;
+  GameState.isRunning = true;
+  GameState.startTime = initialTime;
+
   physics.world.addEventListener('postStep', () => {
     const contacts = physics.world.contacts;
     for (let i = 0; i < contacts.length; i++) {
@@ -92,9 +97,6 @@ function init() {
       }
     }
   });
-
-  let lastTime = performance.now();
-  GameState.startTime = performance.now();
   
   console.log('Three.js loaded successfully');
   console.log('Cannon.js physics engine initialized');
@@ -187,8 +189,6 @@ function init() {
     
     console.log('Level', GameState.currentLevel, 'restarted');
   }
-
-  GameState.isRunning = true;
 
   uiManager.showLevelInfo(GameState.currentLevel, levelData.difficulty);
   uiManager.onRestartBtnClick(() => window.restartLevel());

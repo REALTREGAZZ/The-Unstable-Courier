@@ -18,9 +18,11 @@ export function createWorld({ canvas }) {
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
+    alpha: true,
     antialias: GAME_CONFIG.RENDERER.ANTIALIAS,
     powerPreference: GAME_CONFIG.RENDERER.POWER_PREFERENCE,
   });
+  renderer.setClearColor(0x87ceeb, 1.0);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
