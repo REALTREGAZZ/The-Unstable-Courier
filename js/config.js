@@ -50,4 +50,11 @@ export const GAME_CONFIG = {
     NEAR: 0.1,
     FAR: 1000,
   },
+  
+  LEVEL: {
+    START_LEVEL: 1,
+    MAX_LEVEL: 20,
+    MODULES_PER_LEVEL_BASE: 8,
+    DIFFICULTY_SCALING: true,
+  },
 };
