@@ -1,3 +1,4 @@
+import * as CANNON from 'cannon-es';
 import { GAME_CONFIG } from './config.js';
 
 export class ScoringSystem {
@@ -14,6 +15,9 @@ export class ScoringSystem {
     this.airTime = 0;
     this.lastYaw = 0;
     this.rotationDetected = false;
+    
+    // Reusable vector for Euler angle calculations
+    this.eulerVector = new CANNON.Vec3();
   }
   
   calculateIntegrityMultiplier(currentHealth, maxHealth) {
@@ -54,7 +58,8 @@ export class ScoringSystem {
   
   updateAerialDetection(courier, deltaTime) {
     const body = courier.bodies.body;
-    const currentYaw = body.quaternion.toEuler().y;
+    body.quaternion.toEuler(this.eulerVector);
+    const currentYaw = this.eulerVector.y;
     
     // Check if in air (both feet above ground)
     const leftFootY = courier.bodies.leftFoot.position.y;
